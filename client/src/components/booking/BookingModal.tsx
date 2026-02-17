@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Table, Booking } from '../../types';
+import { Table, Booking, BookingMethod, BookingStatus } from '../../types';
 
 interface BookingModalProps {
   table: Table;
@@ -13,6 +13,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ table, isOpen, onClose, onB
   const [duration, setDuration] = useState('1');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [bookingMethod, setBookingMethod] = useState<BookingMethod>(BookingMethod.ONLINE);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
 
@@ -43,13 +44,25 @@ const BookingModal: React.FC<BookingModalProps> = ({ table, isOpen, onClose, onB
       return;
     }
 
+    const totalAmount = table.hourlyRate * parseFloat(duration);
+
     const booking: Partial<Booking> = {
+      id: `BK${Date.now()}`,
       tableId: table.id,
       branchId: table.branchId,
       startTime: start.toISOString(),
       endTime: end.toISOString(),
-      notes: notes || `Customer: ${customerName}, Phone: ${customerPhone}`,
-      status: 'PENDING',
+      customerName,
+      customerPhone,
+      bookingMethod,
+      totalAmount,
+      status: BookingStatus.CONFIRMED,
+      notes,
+      overtimeMinutes: 0,
+      overtimeCharges: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      userId: 'guest',
     };
 
     onBook(booking);
@@ -59,6 +72,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ table, isOpen, onClose, onB
     setDuration('1');
     setCustomerName('');
     setCustomerPhone('');
+    setBookingMethod(BookingMethod.ONLINE);
     setNotes('');
   };
 
@@ -170,6 +184,22 @@ const BookingModal: React.FC<BookingModalProps> = ({ table, isOpen, onClose, onB
                 <option value="4">4 hours</option>
                 <option value="5">5 hours</option>
                 <option value="6">6 hours</option>
+              </select>
+            </div>
+
+            {/* Booking Method */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Booking Method *
+              </label>
+              <select
+                value={bookingMethod}
+                onChange={(e) => setBookingMethod(e.target.value as BookingMethod)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                required
+              >
+                <option value={BookingMethod.ONLINE}>🌐 Online Booking</option>
+                <option value={BookingMethod.AT_CLUB}>🏢 At Club</option>
               </select>
             </div>
 

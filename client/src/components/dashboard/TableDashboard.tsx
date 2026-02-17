@@ -6,13 +6,18 @@ import BookingModal from '../booking/BookingModal';
 
 const SOCKET_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-const TableDashboard: React.FC = () => {
+interface TableDashboardProps {
+  onBookingCreated?: (booking: Booking) => void;
+  existingBookings?: Booking[];
+}
+
+const TableDashboard: React.FC<TableDashboardProps> = ({ onBookingCreated, existingBookings = [] }) => {
   const [tables, setTables] = useState<Table[]>([]);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isAdmin] = useState(false); // Changed to false to show customer view
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-  const [bookings, setBookings] = useState<Record<string, Partial<Booking>>>({});
+  const [bookings, setBookings] = useState<Record<string, Booking>>({});
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
@@ -149,6 +154,8 @@ const TableDashboard: React.FC = () => {
     if (!selectedTable) return;
 
     try {
+      const fullBooking = booking as Booking;
+
       // Check availability first
       const isAvailable = await checkAvailability(
         selectedTable.id,
@@ -165,15 +172,20 @@ const TableDashboard: React.FC = () => {
       if (socket) {
         socket.emit('booking:create', {
           tableId: selectedTable.id,
-          booking: booking,
+          booking: fullBooking,
         });
       }
 
       // Update local state
       setBookings((prev) => ({
         ...prev,
-        [selectedTable.id]: booking,
+        [selectedTable.id]: fullBooking,
       }));
+
+      // Notify parent component
+      if (onBookingCreated) {
+        onBookingCreated(fullBooking);
+      }
 
       // Update table status to RESERVED
       setTables((prevTables) =>
