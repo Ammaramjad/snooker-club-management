@@ -2,6 +2,36 @@
 
 A comprehensive, production-ready snooker club management system with real-time table status, payment integration, POS system, analytics, membership, tournaments, and multi-branch support.
 
+---
+
+## 🚀 Quick Start (2 Minutes)
+
+**See the system in action immediately** - No database required for the demo!
+
+```bash
+# 1. Install backend dependencies
+cd server
+npm install
+npm run dev
+
+# 2. In a NEW terminal, install and start frontend
+cd client
+npm install
+npm start
+```
+
+**That's it!** The dashboard will open at `http://localhost:3000` showing 6 tables with real-time status updates.
+
+**Try it:** Click any status button to see instant updates! 🎯
+
+### 📚 Documentation
+- 📖 **[RUN.md](RUN.md)** - Simplest run commands (30 seconds)
+- 📖 **[VISUAL_GUIDE.md](VISUAL_GUIDE.md)** - Visual step-by-step with diagrams  
+- 📖 **[TESTING.md](TESTING.md)** - Complete testing guide
+- 📖 **[docs/QUICK_START.md](docs/QUICK_START.md)** - Full setup with database
+
+---
+
 ## 🌟 Features
 
 ### Phase 1 - Core System ✅ (In Progress)
