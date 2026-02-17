@@ -35,10 +35,10 @@ const TableDashboard: React.FC<TableDashboardProps> = ({ onBookingCreated, exist
     });
 
     // Listen for booking updates
-    newSocket.on('booking:created', (data: { tableId: string; booking: Partial<Booking> }) => {
+    newSocket.on('booking:created', (data: { tableId: string; booking: Booking }) => {
       setBookings((prev) => ({
         ...prev,
-        [data.tableId]: data.booking,
+        [data.tableId]: data.booking as Booking,
       }));
       
       // Update table status to RESERVED
