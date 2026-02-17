@@ -1,14 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Table, TableStatus } from '../../types';
+import { Table, TableStatus, Booking } from '../../types';
 import TableCard from './TableCard';
+import BookingModal from '../booking/BookingModal';
 
 const SOCKET_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const TableDashboard: React.FC = () => {
   const [tables, setTables] = useState<Table[]>([]);
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [isAdmin] = useState(true); // TODO: Get from auth context
+  const [isAdmin] = useState(false); // Changed to false to show customer view
+  const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [bookings, setBookings] = useState<Record<string, Partial<Booking>>>({});
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     // Connect to Socket.io
@@ -20,6 +25,21 @@ const TableDashboard: React.FC = () => {
       setTables((prevTables) =>
         prevTables.map((table) =>
           table.id === data.tableId ? { ...table, status: data.status } : table
+        )
+      );
+    });
+
+    // Listen for booking updates
+    newSocket.on('booking:created', (data: { tableId: string; booking: Partial<Booking> }) => {
+      setBookings((prev) => ({
+        ...prev,
+        [data.tableId]: data.booking,
+      }));
+      
+      // Update table status to RESERVED
+      setTables((prevTables) =>
+        prevTables.map((table) =>
+          table.id === data.tableId ? { ...table, status: TableStatus.RESERVED } : table
         )
       );
     });
@@ -120,6 +140,83 @@ const TableDashboard: React.FC = () => {
     );
   };
 
+  const handleBookNow = (table: Table) => {
+    setSelectedTable(table);
+    setIsBookingModalOpen(true);
+  };
+
+  const handleBookingSubmit = async (booking: Partial<Booking>) => {
+    if (!selectedTable) return;
+
+    try {
+      // Check availability first
+      const isAvailable = await checkAvailability(
+        selectedTable.id,
+        booking.startTime!,
+        booking.endTime!
+      );
+
+      if (!isAvailable) {
+        alert('Sorry, this table is not available for the selected time slot. Please choose a different time.');
+        return;
+      }
+
+      // Create booking via socket (in real app, would call API)
+      if (socket) {
+        socket.emit('booking:create', {
+          tableId: selectedTable.id,
+          booking: booking,
+        });
+      }
+
+      // Update local state
+      setBookings((prev) => ({
+        ...prev,
+        [selectedTable.id]: booking,
+      }));
+
+      // Update table status to RESERVED
+      setTables((prevTables) =>
+        prevTables.map((table) =>
+          table.id === selectedTable.id ? { ...table, status: TableStatus.RESERVED } : table
+        )
+      );
+
+      // Show success message
+      setSuccessMessage(`✅ Table ${selectedTable.tableNumber} successfully booked!`);
+      setTimeout(() => setSuccessMessage(''), 5000);
+
+      // Close modal
+      setIsBookingModalOpen(false);
+      setSelectedTable(null);
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      alert('Failed to create booking. Please try again.');
+    }
+  };
+
+  const checkAvailability = async (
+    tableId: string,
+    startTime: string,
+    endTime: string
+  ): Promise<boolean> => {
+    // In a real application, this would call the backend API
+    // For now, we'll check locally against existing bookings
+    const existingBooking = bookings[tableId];
+    
+    if (!existingBooking) return true;
+
+    const newStart = new Date(startTime);
+    const newEnd = new Date(endTime);
+    const existingStart = new Date(existingBooking.startTime!);
+    const existingEnd = new Date(existingBooking.endTime!);
+
+    // Check for overlap
+    const hasOverlap = newStart < existingEnd && newEnd > existingStart;
+    
+    return !hasOverlap;
+  };
+
   const getStatusCount = (status: TableStatus) => {
     return tables.filter((table) => table.status === status).length;
   };
@@ -132,8 +229,17 @@ const TableDashboard: React.FC = () => {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             🎱 Snooker Club Dashboard
           </h1>
-          <p className="text-gray-600">Real-time table status monitoring</p>
+          <p className="text-gray-600">
+            {isAdmin ? 'Real-time table status monitoring' : 'Book your table now!'}
+          </p>
         </div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-6 bg-green-50 border-2 border-green-500 rounded-lg p-4 animate-pulse">
+            <p className="text-green-800 font-semibold text-center">{successMessage}</p>
+          </div>
+        )}
 
         {/* Status Summary */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -193,10 +299,25 @@ const TableDashboard: React.FC = () => {
               key={table.id}
               table={table}
               onStatusChange={handleStatusChange}
+              onBookNow={handleBookNow}
               isAdmin={isAdmin}
+              currentBooking={bookings[table.id]}
             />
           ))}
         </div>
+
+        {/* Booking Modal */}
+        {selectedTable && (
+          <BookingModal
+            table={selectedTable}
+            isOpen={isBookingModalOpen}
+            onClose={() => {
+              setIsBookingModalOpen(false);
+              setSelectedTable(null);
+            }}
+            onBook={handleBookingSubmit}
+          />
+        )}
       </div>
     </div>
   );

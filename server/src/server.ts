@@ -43,6 +43,20 @@ io.on('connection', (socket) => {
   socket.on('booking:update', (data) => {
     io.emit('booking:updated', data);
   });
+
+  // Create booking
+  socket.on('booking:create', (data) => {
+    console.log('Booking created:', data);
+    // Broadcast to all clients
+    io.emit('booking:created', data);
+  });
+
+  // Check availability
+  socket.on('booking:checkAvailability', (data, callback) => {
+    // TODO: Implement actual availability check against database
+    // For now, return available
+    callback({ available: true });
+  });
 });
 
 // Make io accessible in routes

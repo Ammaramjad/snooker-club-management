@@ -1,10 +1,12 @@
 import React from 'react';
-import { Table, TableStatus } from '../../types';
+import { Table, TableStatus, Booking } from '../../types';
 
 interface TableCardProps {
   table: Table;
   onStatusChange?: (tableId: string, newStatus: TableStatus) => void;
+  onBookNow?: (table: Table) => void;
   isAdmin?: boolean;
+  currentBooking?: Partial<Booking>;
 }
 
 const statusColors: Record<TableStatus, { bg: string; text: string; border: string }> = {
@@ -37,13 +39,35 @@ const statusIcons: Record<TableStatus, string> = {
   [TableStatus.MAINTENANCE]: '⚫',
 };
 
-const TableCard: React.FC<TableCardProps> = ({ table, onStatusChange, isAdmin = false }) => {
+const TableCard: React.FC<TableCardProps> = ({ 
+  table, 
+  onStatusChange, 
+  onBookNow,
+  isAdmin = false,
+  currentBooking 
+}) => {
   const colors = statusColors[table.status];
 
   const handleStatusChange = (newStatus: TableStatus) => {
     if (onStatusChange) {
       onStatusChange(table.id, newStatus);
     }
+  };
+
+  const handleBookNow = () => {
+    if (onBookNow) {
+      onBookNow(table);
+    }
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   return (
@@ -71,7 +95,35 @@ const TableCard: React.FC<TableCardProps> = ({ table, onStatusChange, isAdmin = 
             <span className="font-semibold">Notes:</span> {table.maintenanceNotes}
           </p>
         )}
+        {currentBooking && table.status === TableStatus.RESERVED && (
+          <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
+            <p className="text-xs text-yellow-800 font-semibold">Reserved:</p>
+            <p className="text-xs text-yellow-700">
+              {formatDateTime(currentBooking.startTime!)} - {formatDateTime(currentBooking.endTime!)}
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Book Now Button for Customers */}
+      {!isAdmin && table.status === TableStatus.AVAILABLE && (
+        <button
+          onClick={handleBookNow}
+          className="w-full bg-green-600 text-white px-4 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+        >
+          <span>📅</span>
+          <span>Book Now</span>
+        </button>
+      )}
+
+      {/* Not Available Message */}
+      {!isAdmin && table.status !== TableStatus.AVAILABLE && (
+        <div className="w-full bg-gray-200 text-gray-600 px-4 py-3 rounded-lg font-semibold text-center">
+          {table.status === TableStatus.IN_USE && '⏰ Currently In Use'}
+          {table.status === TableStatus.RESERVED && '🔒 Already Reserved'}
+          {table.status === TableStatus.MAINTENANCE && '🔧 Under Maintenance'}
+        </div>
+      )}
 
       {isAdmin && (
         <div className="mt-4 space-y-2">
