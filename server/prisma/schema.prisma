@@ -1,0 +1,470 @@
+// This is your Prisma schema file
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Note: In Prisma v7, the DATABASE_URL is configured in prisma.config.ts
+  // See prisma.config.ts for the datasource.url configuration
+}
+
+// Enums
+enum UserRole {
+  SUPER_ADMIN
+  MANAGER
+  CASHIER
+  STAFF
+  RECEPTIONIST
+  CUSTOMER
+}
+
+enum TableStatus {
+  AVAILABLE
+  IN_USE
+  RESERVED
+  MAINTENANCE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  ONLINE
+  AT_CLUB
+  PARTIAL
+}
+
+enum MembershipTier {
+  GOLD
+  SILVER
+  STUDENT
+  CUSTOM
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum TournamentStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum MatchStatus {
+  SCHEDULED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+// Models
+
+model User {
+  id                    String    @id @default(uuid())
+  email                 String    @unique
+  password              String
+  firstName             String
+  lastName              String
+  phone                 String?
+  role                  UserRole  @default(CUSTOMER)
+  isBlocked             Boolean   @default(false)
+  blockReason           String?
+  isVerified            Boolean   @default(false)
+  idVerified            Boolean   @default(false)
+  profileImage          String?
+  dateOfBirth           DateTime?
+  emergencyContact      String?
+  branchId              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  branch                Branch?                 @relation(fields: [branchId], references: [id])
+  bookings              Booking[]
+  payments              Payment[]
+  membership            Membership?
+  loyaltyPoints         LoyaltyPoint[]
+  ratings               Rating[]
+  tournamentRegistrations TournamentRegistration[]
+  staffIncidents        Incident[]              @relation("StaffReporter")
+  customerIncidents     Incident[]              @relation("CustomerInvolved")
+
+  @@index([email])
+  @@index([role])
+  @@index([branchId])
+}
+
+model Branch {
+  id                String    @id @default(uuid())
+  name              String
+  address           String
+  city              String
+  state             String
+  zipCode           String
+  phone             String
+  email             String?
+  managerName       String?
+  isActive          Boolean   @default(true)
+  settings          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  users             User[]
+  tables            Table[]
+  bookings          Booking[]
+  products          Product[]
+  tournaments       Tournament[]
+  incidents         Incident[]
+
+  @@index([isActive])
+}
+
+model Table {
+  id                String        @id @default(uuid())
+  tableNumber       String
+  status            TableStatus   @default(AVAILABLE)
+  branchId          String
+  hourlyRate        Float
+  maintenanceNotes  String?
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  branch            Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  bookings          Booking[]
+  incidents         Incident[]
+
+  @@unique([branchId, tableNumber])
+  @@index([status])
+  @@index([branchId])
+}
+
+model Booking {
+  id                String          @id @default(uuid())
+  userId            String
+  branchId          String
+  tableId           String
+  startTime         DateTime
+  endTime           DateTime
+  status            BookingStatus   @default(PENDING)
+  actualStartTime   DateTime?
+  actualEndTime     DateTime?
+  overtimeMinutes   Int             @default(0)
+  overtimeCharges   Float           @default(0)
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch            Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  table             Table           @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  payment           Payment?
+  invoice           Invoice?
+  orders            Order[]
+
+  @@index([userId])
+  @@index([tableId])
+  @@index([branchId])
+  @@index([startTime])
+  @@index([status])
+}
+
+model Payment {
+  id                String          @id @default(uuid())
+  bookingId         String          @unique
+  userId            String
+  amount            Float
+  amountPaid        Float           @default(0)
+  amountDue         Float
+  status            PaymentStatus   @default(PENDING)
+  method            PaymentMethod
+  transactionId     String?
+  paymentDeadline   DateTime?
+  refundAmount      Float?
+  refundReason      String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  booking           Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  user              User            @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([transactionId])
+}
+
+model Invoice {
+  id                String    @id @default(uuid())
+  invoiceNumber     String    @unique
+  bookingId         String    @unique
+  subtotal          Float
+  taxPercentage     Float     @default(0)
+  taxAmount         Float     @default(0)
+  discountAmount    Float     @default(0)
+  totalAmount       Float
+  pdfUrl            String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  booking           Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceNumber])
+}
+
+model Product {
+  id                String    @id @default(uuid())
+  name              String
+  category          String
+  price             Float
+  stock             Int       @default(0)
+  lowStockThreshold Int       @default(10)
+  image             String?
+  isActive          Boolean   @default(true)
+  branchId          String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  branch            Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  orderItems        OrderItem[]
+
+  @@index([branchId])
+  @@index([category])
+  @@index([isActive])
+}
+
+model Order {
+  id                String      @id @default(uuid())
+  bookingId         String
+  totalAmount       Float
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  booking           Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  items             OrderItem[]
+
+  @@index([bookingId])
+}
+
+model OrderItem {
+  id                String    @id @default(uuid())
+  orderId           String
+  productId         String
+  quantity          Int
+  priceAtTime       Float
+  totalPrice        Float
+  createdAt         DateTime  @default(now())
+
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product           Product   @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Membership {
+  id                String          @id @default(uuid())
+  userId            String          @unique
+  tier              MembershipTier
+  startDate         DateTime
+  expiryDate        DateTime
+  isActive          Boolean         @default(true)
+  discountPercentage Float          @default(0)
+  specialRate       Float?
+  freeHoursRemaining Int            @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tier])
+  @@index([expiryDate])
+}
+
+model Coupon {
+  id                String        @id @default(uuid())
+  code              String        @unique
+  discountType      DiscountType
+  discountValue     Float
+  minBookingAmount  Float         @default(0)
+  validFrom         DateTime
+  validUntil        DateTime
+  usageLimit        Int?
+  usageCount        Int           @default(0)
+  isActive          Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+}
+
+model Tournament {
+  id                String              @id @default(uuid())
+  name              String
+  description       String?
+  branchId          String
+  startDate         DateTime
+  endDate           DateTime
+  entryFee          Float               @default(0)
+  prizePool         Float               @default(0)
+  rules             String?
+  format            String              @default("SINGLE_ELIMINATION")
+  status            TournamentStatus    @default(UPCOMING)
+  maxParticipants   Int?
+  registrationDeadline DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  branch            Branch              @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  registrations     TournamentRegistration[]
+  matches           Match[]
+
+  @@index([branchId])
+  @@index([status])
+  @@index([startDate])
+}
+
+model TournamentRegistration {
+  id                String      @id @default(uuid())
+  tournamentId      String
+  userId            String
+  isPaid            Boolean     @default(false)
+  paymentId         String?
+  registeredAt      DateTime    @default(now())
+
+  tournament        Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user              User        @relation(fields: [userId], references: [id])
+
+  @@unique([tournamentId, userId])
+  @@index([tournamentId])
+  @@index([userId])
+}
+
+model Match {
+  id                String        @id @default(uuid())
+  tournamentId      String
+  round             Int
+  matchNumber       Int
+  player1Id         String?
+  player2Id         String?
+  winnerId          String?
+  player1Score      Int?
+  player2Score      Int?
+  scheduledTime     DateTime?
+  actualStartTime   DateTime?
+  actualEndTime     DateTime?
+  status            MatchStatus   @default(SCHEDULED)
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  tournament        Tournament    @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@index([tournamentId])
+  @@index([status])
+}
+
+model Rating {
+  id                String    @id @default(uuid())
+  userId            String
+  overallRating     Int
+  cleanlinessRating Int?
+  serviceRating     Int?
+  equipmentRating   Int?
+  feedback          String?
+  createdAt         DateTime  @default(now())
+
+  user              User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([overallRating])
+}
+
+model LoyaltyPoint {
+  id                String    @id @default(uuid())
+  userId            String
+  points            Int
+  reason            String
+  expiryDate        DateTime?
+  createdAt         DateTime  @default(now())
+
+  user              User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Incident {
+  id                String    @id @default(uuid())
+  branchId          String
+  tableId           String?
+  reportedBy        String
+  customerId        String?
+  title             String
+  description       String
+  images            String[]
+  repairCost        Float?
+  status            String    @default("OPEN")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  branch            Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  table             Table?    @relation(fields: [tableId], references: [id])
+  reporter          User      @relation("StaffReporter", fields: [reportedBy], references: [id])
+  customer          User?     @relation("CustomerInvolved", fields: [customerId], references: [id])
+
+  @@index([branchId])
+  @@index([tableId])
+  @@index([status])
+}
+
+model Notification {
+  id                String    @id @default(uuid())
+  userId            String?
+  type              String
+  title             String
+  message           String
+  channel           String    // SMS, WHATSAPP, EMAIL
+  status            String    @default("PENDING")
+  sentAt            DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+}
+
+model AuditLog {
+  id                String    @id @default(uuid())
+  userId            String?
+  action            String
+  entity            String
+  entityId          String?
+  changes           Json?
+  ipAddress         String?
+  userAgent         String?
+  createdAt         DateTime  @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+}
+
