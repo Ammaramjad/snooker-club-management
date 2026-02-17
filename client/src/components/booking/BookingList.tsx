@@ -15,14 +15,17 @@ const BookingList: React.FC<BookingListProps> = ({ bookings, onCancelBooking }) 
   const statusColors: Record<BookingStatus, string> = {
     [BookingStatus.PENDING]: 'bg-yellow-100 text-yellow-800',
     [BookingStatus.CONFIRMED]: 'bg-blue-100 text-blue-800',
+    [BookingStatus.CHECKED_IN]: 'bg-cyan-100 text-cyan-800',
     [BookingStatus.IN_PROGRESS]: 'bg-purple-100 text-purple-800',
     [BookingStatus.COMPLETED]: 'bg-green-100 text-green-800',
     [BookingStatus.CANCELLED]: 'bg-red-100 text-red-800',
+    [BookingStatus.NO_SHOW]: 'bg-gray-100 text-gray-800',
   };
 
   const methodBadges: Record<BookingMethod, string> = {
     [BookingMethod.ONLINE]: 'bg-indigo-100 text-indigo-800',
     [BookingMethod.AT_CLUB]: 'bg-gray-100 text-gray-800',
+    [BookingMethod.PHONE]: 'bg-green-100 text-green-800',
   };
 
   const filteredBookings = bookings.filter((booking) => {

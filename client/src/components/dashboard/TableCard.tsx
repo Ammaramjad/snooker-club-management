@@ -30,6 +30,11 @@ const statusColors: Record<TableStatus, { bg: string; text: string; border: stri
     text: 'text-gray-800',
     border: 'border-gray-500',
   },
+  [TableStatus.CLEANING]: {
+    bg: 'bg-blue-100',
+    text: 'text-blue-800',
+    border: 'border-blue-500',
+  },
 };
 
 const statusIcons: Record<TableStatus, string> = {
@@ -37,6 +42,7 @@ const statusIcons: Record<TableStatus, string> = {
   [TableStatus.IN_USE]: '🔴',
   [TableStatus.RESERVED]: '🟡',
   [TableStatus.MAINTENANCE]: '⚫',
+  [TableStatus.CLEANING]: '🔵',
 };
 
 const TableCard: React.FC<TableCardProps> = ({ 
